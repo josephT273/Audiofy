@@ -28,7 +28,16 @@ MyVideo processVideoThumbnails(Video video) {
       thumbnails: [highestThumbnail],
     );
   } else {
-    return video as MyVideo; // Return the original video if no thumbnails
+    // Fallback: construct MyVideo with original thumbnails or empty list
+    return MyVideo(
+      videoId: video.videoId,
+      duration: video.duration,
+      title: video.title,
+      channelName: video.channelName,
+      views: video.views,
+      uploadDate: video.uploadDate,
+      thumbnails: video.thumbnails,
+    );
   }
 }
 

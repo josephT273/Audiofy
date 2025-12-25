@@ -5,17 +5,33 @@ import 'package:youtube_scrape_api/youtube_scrape_api.dart' as scraper;
 
 Future<String> fetchYoutubeStreamUrl(String id) async {
   final yt = YoutubeExplode();
-  final manifest = await yt.videos.streams.getManifest(id,
-      // You can also pass a list of preferred clients, otherwise the library will handle it:
-      ytClients: [
-        YoutubeApiClient.androidVr,
-      ]);
+  try {
+    StreamManifest? manifest;
+    // Try multiple clients for better compatibility
+    final List<List<YoutubeApiClient>> clients = [
+      [YoutubeApiClient.androidVr],
+      [YoutubeApiClient.android],
+      [YoutubeApiClient.tv],
+    ];
 
-  // Print all the available streams.
-  print('fetched url');
-  final audio = manifest.audioOnly.withHighestBitrate();
-  yt.close();
-  return audio.url.toString();
+    for (final clientList in clients) {
+      try {
+        manifest = await yt.videos.streams.getManifest(id, ytClients: clientList);
+        if (manifest.audioOnly.isNotEmpty) break;
+      } catch (e) {
+        print('Client failed, trying next... $e');
+      }
+    }
+
+    if (manifest == null || manifest.audioOnly.isEmpty) {
+      throw Exception('No audio streams found for video $id');
+    }
+
+    final audio = manifest.audioOnly.withHighestBitrate();
+    return audio.url.toString();
+  } finally {
+    yt.close();
+  }
 }
 
 Future<Stream<List<int>>> fetchAcutalStream(String id) async {

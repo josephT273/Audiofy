@@ -1,0 +1,15 @@
+flutter_app:
+  command: audiofy
+  arch: x64
+  parent: /usr/lib
+  nonInteractive: true
+
+control:
+  Package: audiofy
+  Version: 1.0.0
+  Architecture: amd64
+  Maintainer: Joseph Tadesse <joetech0101@gmail.com>
+  Description: The Audio Streaming Platform
+  Depends: libgtk-3-0, libblkid1, liblzma5
+  Section: utils
+  Priority: optional

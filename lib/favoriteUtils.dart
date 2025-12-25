@@ -40,7 +40,6 @@ Future<List<MyVideo>> getFavorites() async {
 Future<bool> saveToFavorites(MyVideo video) async {
   final id = video.videoId;
   final thumbnail = video.thumbnails?.isNotEmpty == true ? video.thumbnails!.first : null;
-  final localaudio = await fetchYoutubeStreamUrl(video.videoId!);
   try {
     await db.collection('favorites').doc(id).set({
       'videoId': video.videoId,
@@ -52,7 +51,6 @@ Future<bool> saveToFavorites(MyVideo video) async {
       'url': thumbnail?.url,
       'height': thumbnail?.height,
       'weight': thumbnail?.width,
-      'localaudio': localaudio
     });
 
     print("MyVideo saved to favorites successfully.");

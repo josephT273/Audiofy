@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=Audiofy
+GenericName=Audio Player
+Comment=The Audio Streaming Platform
+Terminal=false
+Exec=audiofy
+Type=Application
+Categories=AudioVideo;Audio;Player;
+Keywords=Audio;Music;Player;Stream;
+Icon=audiofy

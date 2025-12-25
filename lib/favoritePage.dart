@@ -235,6 +235,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> with SingleTickerProvid
         crossAxisCount: 2,
         crossAxisSpacing: 12.0,
         mainAxisSpacing: 20.0,
+        childAspectRatio: 0.8,
       ),
       padding: EdgeInsets.all(16),
       itemCount: _videos.length,

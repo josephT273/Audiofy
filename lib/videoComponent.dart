@@ -5,46 +5,17 @@ import 'package:audiobinge/channelVideosPage.dart';
 import 'package:flutter/material.dart';
 import 'package:youtube_scrape_api/models/video.dart';
 import 'package:provider/provider.dart';
-import 'downloadUtils.dart';
 import 'main.dart'; // Replace with the actual path
+// import 'downloadUtils.dart'; // Removed legacy
+import 'services/download_manager.dart';
 import 'youtubeAudioStream.dart';
 import 'favoriteUtils.dart';
 import 'connectivityProvider.dart';
 import 'MyVideo.dart';
 import 'colors.dart';
 
-class DownloadService {
-  final Map<String, double> _downloadProgress = {};
-  final Map<String, bool> _downloadingState = {};
-  final StreamController<Map<String, double>> _progressStreamController =
-      StreamController<Map<String, double>>.broadcast();
-
-  Stream<Map<String, double>> get progressStream =>
-      _progressStreamController.stream;
-
-  double getProgress(String videoId) {
-    return _downloadProgress[videoId] ?? 0.0;
-  }
-
-  bool getDownloadingState(String videoId) {
-    return _downloadingState[videoId] ?? false;
-  }
-
-  Future<void> startDownload(BuildContext context, MyVideo video) async {
-    _downloadingState[video.videoId!] = true;
-    downloadAndSaveMetaData(context, video, (progress) {
-      _downloadProgress[video.videoId!] = progress;
-      _progressStreamController.add(_downloadProgress);
-      if (progress >= 1.0) {
-        _downloadingState[video.videoId!] = false;
-      }
-    });
-  }
-
-  void dispose() {
-    _progressStreamController.close();
-  }
-}
+import 'services/download_manager.dart';
+import 'services/playlist_service.dart'; // Add this import
 
 class VideoComponent extends StatefulWidget {
   final MyVideo video;
@@ -64,7 +35,7 @@ class _VideoComponentState extends State<VideoComponent> {
     super.initState();
     _future = Future.wait([
       isFavorites(widget.video),
-      isDownloaded(widget.video),
+      // isDownloaded handled by DownloadManager now
     ]);
   }
 
@@ -78,31 +49,23 @@ class _VideoComponentState extends State<VideoComponent> {
   Widget build(BuildContext context) {
     final playing = Provider.of<Playing>(context, listen: false);
     bool isOnline = Provider.of<NetworkProvider>(context).isOnline;
-    final downloadService = Provider.of<DownloadService>(context);
+    // Listen to DownloadManager updates
+    final downloadManager = Provider.of<DownloadManager>(context);
+    final task = downloadManager.activeDownloads[widget.video.videoId];
+    bool isDownloading = task != null;
+    double progress = task?.progress ?? 0.0;
+    bool isDownloaded = downloadManager.isDownloaded(widget.video.videoId!);
 
     return FutureBuilder<List<bool>>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return CircularProgressIndicator(); // Show loading indicator
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        } else if (!snapshot.hasData ||
-            snapshot.data == null ||
-            snapshot.data!.isEmpty) {
-          return Text('No data available');
-        } else {
-          bool _isLiked = (snapshot.data![0] ?? false);
-          bool _isDownloaded = (snapshot.data![1] ?? false);
-
-          return StreamBuilder<Map<String, double>>(
-            stream: downloadService.progressStream,
-            builder: (context, progressSnapshot) {
-              final progress = progressSnapshot.hasData
-                  ? progressSnapshot.data![widget.video.videoId!] ?? 0.0
-                  : 0.0;
-              final downloading =
-                  downloadService.getDownloadingState(widget.video.videoId!);
+          // Note: snapshot logic primarily for 'isFavorites' now. 
+          // 'isDownloaded' is real-time from manager.
+          
+           bool _isLiked = false;
+           if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+               _isLiked = snapshot.data![0];
+           }
 
               // Check if this video is the currently playing video
               final isCurrentVideo =
@@ -110,10 +73,14 @@ class _VideoComponentState extends State<VideoComponent> {
 
               return GestureDetector(
                 onTap: () {
-                  playing.assign(widget.video, true);
+                  if (playing.queue.isEmpty) {
+                    playing.assign(widget.video, true);
+                  } else {
+                    playing.playNext(widget.video);
+                  }
                 },
                 child: Container(
-                  height: 100,
+                  // height: 200, // Removed to allow GridView aspect ratio to dictate height without overflow
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(15),
@@ -128,184 +95,147 @@ class _VideoComponentState extends State<VideoComponent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(15),
-                              bottom: Radius.circular(15),
-                            ),
-                            child: (widget.video.localimage != null)
-                                ? Image.file(
-                                    File(widget.video.localimage!),
-                                    height: 100,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : (isOnline)
-                                    ? Image.network(
-                                        widget.video.thumbnails![0].url!,
-                                        height: 100,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.asset(
-                                        'assets/icon.png',
-                                        height: 100,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      ),
-                          ),
-                          Positioned(
-                            top: -4,
-                            right: -4,
-                            child: PopupMenuButton<String>(
-                              icon: Icon(
-                                Icons.more_vert,
-                                color: Colors.white,
-                                size: 20,
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(15),
+                                bottom: Radius.circular(15),
                               ),
-                              onSelected: (String value) {
-                                switch (value) {
-                                  case 'add_to_queue':
-                                    if (playing.queue.contains(widget.video)) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text('Already in Queue'),
-                                          backgroundColor: Colors.white,
-                                          elevation: 10,
-                                          behavior: SnackBarBehavior.floating,
-                                          margin: EdgeInsets.all(5),
-                                        ),
-                                      );
-                                    } else {
-                                      playing.addToQueue(widget.video);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text('Added to Queue'),
-                                          backgroundColor: Colors.white,
-                                          elevation: 10,
-                                          behavior: SnackBarBehavior.floating,
-                                          margin: EdgeInsets.all(5),
-                                        ),
-                                      );
-                                    }
-                                    break;
-                                  case 'add_to_favorites':
-                                    saveToFavorites(widget.video);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Added to favorites'),
-                                        backgroundColor: Colors.white,
-                                        elevation: 10,
-                                        behavior: SnackBarBehavior.floating,
-                                        margin: EdgeInsets.all(5),
-                                      ),
-                                    );
-                                    break;
-                                  case 'remove_from_favorites':
-                                    removeFavorites(widget.video);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Removed from favorites'),
-                                        backgroundColor: Colors.white,
-                                        elevation: 10,
-                                        behavior: SnackBarBehavior.floating,
-                                        margin: EdgeInsets.all(5),
-                                      ),
-                                    );
-                                    break;
-                                  case 'add_to_downloads':
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(SnackBar(
-                                      content: Text('Download started'),
-                                      backgroundColor: Colors.white,
-                                      elevation: 10,
-                                      behavior: SnackBarBehavior.floating,
-                                      margin: EdgeInsets.all(5),
-                                    ));
-                                    downloadService.startDownload(
-                                        context, widget.video);
-                                    break;
-                                  case 'remove_from_downloads':
-                                    deleteDownload(widget.video);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Removed from downloads'),
-                                        backgroundColor: Colors.white,
-                                        elevation: 10,
-                                        behavior: SnackBarBehavior.floating,
-                                        margin: EdgeInsets.all(5),
-                                      ),
-                                    );
-                                    break;
-                                }
-                              },
-                              itemBuilder: (BuildContext context) {
-                                return [
-                                  PopupMenuItem<String>(
-                                    value: 'add_to_queue',
-                                    child: Text('Add to Queue'),
-                                  ),
-                                  _isLiked
-                                      ? PopupMenuItem<String>(
-                                          value: 'remove_from_favorites',
-                                          child: Text('Remove from favorites'),
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: double.infinity,
+                                child: (widget.video.localimage != null && File(widget.video.localimage!).existsSync())
+                                  ? Image.file(
+                                      File(widget.video.localimage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : (isOnline && widget.video.thumbnails != null && widget.video.thumbnails!.isNotEmpty)
+                                      ? Image.network(
+                                          widget.video.thumbnails![0].url!,
+                                          fit: BoxFit.cover,
                                         )
-                                      : PopupMenuItem<String>(
-                                          value: 'add_to_favorites',
-                                          child: Text('Add to favorites'),
+                                      : Container(
+                                          color: Colors.grey[800],
+                                          child: Icon(Icons.music_note, color: Colors.white)
                                         ),
-                                  _isDownloaded
-                                      ? PopupMenuItem<String>(
-                                          value: 'remove_from_downloads',
-                                          child: Text('Remove from downloads'),
-                                        )
-                                      : PopupMenuItem<String>(
-                                          value: 'add_to_downloads',
-                                          child: Text('Download'),
-                                        ),
-                                ];
-                              },
+                              ),
                             ),
-                          ),
-                          if (widget.video.duration != null &&
-                              widget.video.duration!.isNotEmpty)
                             Positioned(
-                              bottom: 8,
-                              right: 8,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(8),
+                              top: -4,
+                              right: -4,
+                              child: PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: Colors.white,
+                                  size: 20,
                                 ),
-                                child: Text(
-                                  widget.video.duration!,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                onSelected: (String value) {
+                                  switch (value) {
+                                    case 'add_to_queue':
+                                        playing.addToQueue(widget.video);
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to Queue')));
+                                      break;
+                                    case 'add_to_favorites':
+                                      saveToFavorites(widget.video);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to favorites')));
+                                      break;
+                                    case 'remove_from_favorites':
+                                      removeFavorites(widget.video);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed from favorites')));
+                                      break;
+                                    case 'add_to_downloads':
+                                      downloadManager.startDownload(widget.video);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download started')));
+                                      break;
+                                    case 'remove_from_downloads':
+                                      downloadManager.deleteDownload(widget.video);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deleted from downloads')));
+                                      break;
+                                    case 'cancel_download':
+                                      downloadManager.cancelDownload(widget.video.videoId!);
+                                      break;
+                                    case 'add_to_playlist': // New case
+                                      _showAddToPlaylistDialog(context, widget.video);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) {
+                                  return [
+                                    PopupMenuItem<String>(
+                                      value: 'add_to_queue',
+                                      child: Text('Add to Queue'),
+                                    ),
+                                    PopupMenuItem<String>( // New menu item
+                                      value: 'add_to_playlist',
+                                      child: Text('Add to Playlist'),
+                                    ),
+                                    _isLiked
+                                        ? PopupMenuItem<String>(
+                                            value: 'remove_from_favorites',
+                                            child: Text('Remove from favorites'),
+                                          )
+                                        : PopupMenuItem<String>(
+                                            value: 'add_to_favorites',
+                                            child: Text('Add to favorites'),
+                                          ),
+                                    if (isDownloading)
+                                       PopupMenuItem<String>(
+                                          value: 'cancel_download',
+                                          child: Text('Cancel Download'),
+                                       )
+                                    else if (isDownloaded)
+                                        PopupMenuItem<String>(
+                                            value: 'remove_from_downloads',
+                                            child: Text('Remove from downloads'),
+                                          )
+                                        else
+                                            PopupMenuItem<String>(
+                                                value: 'add_to_downloads',
+                                                child: Text('Download'),
+                                              ),
+                                  ];
+                                },
+                              ),
+                            ),
+                            if (widget.video.duration != null &&
+                                widget.video.duration!.isNotEmpty)
+                              Positioned(
+                                bottom: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    widget.video.duration!,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          if (isCurrentVideo) // Show play icon if current video
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Icon(
-                                Icons.play_arrow,
-                                color: AppColors.primaryColor,
-                                size: 24,
+                            if (isCurrentVideo) // Show play icon if current video
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Icon(
+                                  Icons.play_arrow,
+                                  color: AppColors.primaryColor,
+                                  size: 24,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                      if (downloading)
+                      if (isDownloading)
                         LinearProgressIndicator(
                           value: progress,
                           backgroundColor: Colors.black87,
@@ -355,9 +285,85 @@ class _VideoComponentState extends State<VideoComponent> {
                   ),
                 ),
               );
-            },
-          );
-        }
+      },
+    );
+  }
+
+  void _showAddToPlaylistDialog(BuildContext context, MyVideo video) async {
+    final PlaylistService _service = PlaylistService();
+    List<Playlist> playlists = await _service.getPlaylists();
+    final TextEditingController _newPlaylistNameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text("Add to Playlist", style: TextStyle(color: Colors.white)),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (playlists.isNotEmpty)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: playlists.length,
+                      itemBuilder: (context, index) {
+                        final playlist = playlists[index];
+                        return ListTile(
+                          leading: Icon(Icons.playlist_add, color: AppColors.primaryColor),
+                          title: Text(playlist.name, style: TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            await _service.addVideoToPlaylist(playlist.name, video);
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Added to ${playlist.name}")),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                if (playlists.isNotEmpty) Divider(color: Colors.grey),
+                TextField(
+                  controller: _newPlaylistNameController,
+                  style: TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "New Playlist Name",
+                    hintStyle: TextStyle(color: Colors.grey),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryColor)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (_newPlaylistNameController.text.isNotEmpty) {
+                  final newPlaylist = Playlist(
+                    name: _newPlaylistNameController.text,
+                    videos: [video],
+                  );
+                  await _service.savePlaylist(newPlaylist);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Created and added to '${newPlaylist.name}'")),
+                  );
+                }
+              },
+              child: Text("Create", style: TextStyle(color: AppColors.primaryColor)),
+            ),
+          ],
+        );
       },
     );
   }

@@ -27,6 +27,7 @@ class MyVideo extends Video {
   );
 
   factory MyVideo.fromMap(Map<String, dynamic>? map, {String? localimage, String? localaudio}) {
+    if (map == null) return MyVideo();
     Video video = Video.fromMap(map); // Create a regular Video object first
 
     return MyVideo(
@@ -37,18 +38,53 @@ class MyVideo extends Video {
       views: video.views,
       uploadDate: video.uploadDate,
       thumbnails: video.thumbnails,
-      localimage: localimage,
-      localaudio: localaudio,
+      localimage: localimage ?? map['localimage'],
+      localaudio: localaudio ?? map['localaudio'],
+    );
+  }
+
+  factory MyVideo.fromJson(Map<String, dynamic> json) {
+    return MyVideo(
+      videoId: json['videoId'],
+      duration: json['duration'],
+      title: json['title'],
+      channelName: json['channelName'],
+      views: json['views'],
+      uploadDate: json['uploadDate'],
+      thumbnails: (json['thumbnails'] as List<dynamic>?)
+          ?.map((t) => ThumbnailJson.fromJson(Map<String, dynamic>.from(t as Map)))
+          .toList(),
+      localimage: json['localimage'],
+      localaudio: json['localaudio'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    Map<String, dynamic> videoJson = super.toJson();
-    videoJson.addAll({
-      "localimage": localimage,
-      "localaudio": localaudio,
-    });
-    return videoJson;
+    return {
+      'videoId': videoId,
+      'duration': duration,
+      'title': title,
+      'channelName': channelName,
+      'views': views,
+      'uploadDate': uploadDate,
+      'thumbnails': thumbnails?.map((t) => t.toJson()).toList(),
+      'localimage': localimage,
+      'localaudio': localaudio,
+    };
   }
+}
+
+extension ThumbnailJson on Thumbnail {
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        'width': width,
+        'height': height,
+      };
+
+  static Thumbnail fromJson(Map<String, dynamic> json) => Thumbnail(
+        url: json['url'],
+        width: json['width'],
+        height: json['height'],
+      );
 }
 

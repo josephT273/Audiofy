@@ -1,4 +1,3 @@
-import 'package:audiobinge/favoriteUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
@@ -7,7 +6,7 @@ import 'videoComponent.dart';
 import 'package:shimmer/shimmer.dart';
 import 'main.dart';
 import 'package:provider/provider.dart';
-import 'downloadUtils.dart';
+import 'services/download_manager.dart';
 import 'MyVideo.dart';
 import 'colors.dart';
 import 'connectivityProvider.dart';
@@ -36,7 +35,7 @@ class _DownloadScreenState extends State<DownloadScreen> with SingleTickerProvid
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    fetchDownloads();
+    // fetchDownloads(); // Removed
     _animationController.forward();
   }
 
@@ -46,19 +45,11 @@ class _DownloadScreenState extends State<DownloadScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  Future<void> fetchDownloads() async {
-    setState(() {
-      _isLoading = true;
-    });
-    List<MyVideo> videos = await getDownloads();
-    setState(() {
-      _videos = videos;
-      _isLoading = false;
-    });
-  }
+  // Removed manual fetchDownloads as we will listen to DownloadManager directly
+  // _videos and _isLoading are no longer needed for source of truth
 
   Future<void> _handleRefresh() async {
-    await fetchDownloads();
+    setState(() {}); // Trigger rebuild to re-fetch from Hive if needed, though Listeners should handle it
     return Future.value();
   }
 
@@ -147,7 +138,76 @@ class _DownloadScreenState extends State<DownloadScreen> with SingleTickerProvid
                 height: 100,
                 animSpeedFactor: 2,
                 showChildOpacityTransition: true,
-                child: _buildContent(),
+                child: Column(
+      children: [
+        // Active Downloads Section
+        Consumer<DownloadManager>(
+            builder: (context, downloadManager, child) {
+                final active = downloadManager.activeDownloads.values.toList();
+                if (active.isEmpty) return SizedBox.shrink();
+                
+                return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                            Text("Active Downloads", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                            SizedBox(height: 8),
+                            ...active.map((task) => Container(
+                                margin: EdgeInsets.only(bottom: 8),
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(8)),
+                                child: Row(children: [
+                                    Container(
+                                        width: 48, height: 48,
+                                        child: (task.video.thumbnails?.isNotEmpty == true && task.video.thumbnails!.first.url != null)
+                                            ? Image.network(task.video.thumbnails!.first.url!, fit: BoxFit.cover) 
+                                            : Icon(Icons.music_note, color: Colors.white),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                            Text(task.video.title ?? "Downloading...", maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white)),
+                                            SizedBox(height: 4),
+                                            LinearProgressIndicator(value: task.progress, backgroundColor: Colors.black, color: AppColors.primaryColor),
+                                            SizedBox(height: 4),
+                                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                                Text(task.speed, style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                                Text("${(task.progress * 100).toStringAsFixed(0)}%", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                            ])
+                                        ]
+                                    )),
+                                    IconButton(
+                                        icon: Icon(task.status == DownloadStatus.paused ? Icons.play_arrow : Icons.pause, color: Colors.white),
+                                        onPressed: () {
+                                            if (task.status == DownloadStatus.paused) {
+                                                downloadManager.resumeDownload(task.video.videoId!);
+                                            } else {
+                                                downloadManager.pauseDownload(task.video.videoId!);
+                                            }
+                                        }
+                                    ),
+                                    IconButton(
+                                        icon: Icon(Icons.close, color: Colors.red),
+                                        onPressed: () => downloadManager.cancelDownload(task.video.videoId!)
+                                    )
+                                ])
+                            ))
+                        ]
+                    )
+                );
+            }
+        ),
+        Expanded(
+          child: Consumer<DownloadManager>(
+            builder: (context, downloadManager, child) {
+              return _buildContent(downloadManager.getCompletedDownloads());
+            },
+          ),
+        )
+      ]
+    ),
               ),
             ),
           ],
@@ -156,33 +216,8 @@ class _DownloadScreenState extends State<DownloadScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildContent() {
-    if (_isLoading) {
-      return GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12.0,
-          mainAxisSpacing: 20.0,
-        ),
-        padding: EdgeInsets.all(16),
-        itemCount: 8,
-        itemBuilder: (context, index) {
-          return Shimmer.fromColors(
-            baseColor: Colors.grey[800]!,
-            highlightColor: Colors.grey[700]!,
-            child: Container(
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-          );
-        },
-      );
-    }
-
-    if (_videos.isEmpty) {
+  Widget _buildContent(List<MyVideo> videos) {
+    if (videos.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -236,9 +271,9 @@ class _DownloadScreenState extends State<DownloadScreen> with SingleTickerProvid
         mainAxisSpacing: 20.0,
       ),
       padding: EdgeInsets.all(16),
-      itemCount: _videos.length,
+      itemCount: videos.length,
       itemBuilder: (context, index) {
-        final video = _videos[index];
+        final video = videos[index];
         return VideoComponent(video: video);
       },
     );

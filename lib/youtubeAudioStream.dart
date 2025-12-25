@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'favoriteUtils.dart';
 import 'thumbnailUtils.dart';
 import 'connectivityProvider.dart';
+import 'services/playlist_service.dart';
 
 // LikeNotifier provider
 class LikeNotifier extends ChangeNotifier {
@@ -125,7 +126,11 @@ class _YoutubeAudioPlayerState extends State<YoutubeAudioPlayer> {
               ),
             ),
           ),
-          Column(
+          Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                   padding: EdgeInsets.symmetric(vertical: 20),
+                   child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Album Art
@@ -213,17 +218,6 @@ class _YoutubeAudioPlayerState extends State<YoutubeAudioPlayer> {
                       color: likeNotifier.isLiked ? Colors.red : Colors.white,
                     );
                   }),
-                  // SizedBox(width: 20),
-                  // _animatedButton(
-                  //   _isInPlaylist ? Icons.playlist_add_check : Icons.playlist_add,
-                  //       () {
-                  //     setState(() {
-                  //       _isInPlaylist = !_isInPlaylist;
-                  //     });
-                  //   },
-                  //   28,
-                  //   color: _isInPlaylist ? Colors.green : Colors.white,
-                  // ),
                   SizedBox(width: 20),
                   _animatedButton(
                     Icons.lyrics,
@@ -389,6 +383,9 @@ class _YoutubeAudioPlayerState extends State<YoutubeAudioPlayer> {
               ),
             ],
           ),
+          ),
+          ),
+          ),
         ],
       ),
     );
@@ -503,10 +500,57 @@ class _YoutubeAudioPlayerState extends State<YoutubeAudioPlayer> {
                   },
                 ),
               ),
+              SizedBox(height: 16),
+                ElevatedButton(
+                    onPressed: () {
+                        _showSavePlaylistDialog(context, playing.queue);
+                    },
+                    child: Text("Save Playlist"),
+                ),
             ],
           ),
         );
       },
     );
   }
+
+  void _showSavePlaylistDialog(BuildContext context, List<MyVideo> queue) {
+    final TextEditingController _playlistNameController = TextEditingController();
+    showDialog(
+        context: context,
+        builder: (context) {
+            return AlertDialog(
+                title: Text("Save Playlist"),
+                content: TextField(
+                    controller: _playlistNameController,
+                    decoration: InputDecoration(hintText: "Playlist Name"),
+                ),
+                actions: [
+                    TextButton(
+                        onPressed: () {
+                            Navigator.pop(context);
+                        },
+                        child: Text("Cancel"),
+                    ),
+                    TextButton(
+                        onPressed: () {
+                            if (_playlistNameController.text.isNotEmpty) {
+                                final playlist = Playlist(
+                                    name: _playlistNameController.text,
+                                    videos: queue,
+                                );
+                                PlaylistService().savePlaylist(playlist);
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Playlist saved!"))
+                                );
+                            }
+                        },
+                        child: Text("Save"),
+                    ),
+                ],
+            );
+        },
+    );
+}
 }
