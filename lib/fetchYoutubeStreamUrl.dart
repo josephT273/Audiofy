@@ -2,6 +2,7 @@ import 'package:audiofy/channelVideosPage.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Video;
 import 'package:youtube_scrape_api/models/video.dart';
 import 'package:youtube_scrape_api/youtube_scrape_api.dart' as scraper;
+import 'services/invidious_service.dart';
 
 Future<String> fetchYoutubeStreamUrl(String id) async {
   final yt = YoutubeExplode();
@@ -13,6 +14,10 @@ Future<String> fetchYoutubeStreamUrl(String id) async {
       [YoutubeApiClient.androidVr],
       [YoutubeApiClient.android],
       [YoutubeApiClient.tv],
+      [YoutubeApiClient.mediaConnect],
+      [YoutubeApiClient.mweb],
+      [YoutubeApiClient.androidMusic],
+      [YoutubeApiClient.safari],
     ];
 
     for (final clientList in clients) {
@@ -31,6 +36,23 @@ Future<String> fetchYoutubeStreamUrl(String id) async {
 
     final audio = manifest.audioOnly.withHighestBitrate();
     return audio.url.toString();
+  } catch (e) {
+    print('YouTube explode failed: $e');
+
+    // Fallback to Invidious (works better on Android)
+    print('Trying Invidious fallback...');
+    try {
+      final invidiousUrl = await InvidiousService().getStreamUrl(id);
+      if (invidiousUrl != null) {
+        print('Successfully fetched from Invidious fallback');
+        return invidiousUrl;
+      }
+    } catch (invError) {
+      print('Invidious fallback also failed: $invError');
+    }
+
+    print('Error: All methods failed for video $id');
+    rethrow;
   } finally {
     yt.close();
   }

@@ -1,7 +1,7 @@
 flutter_app:
   command: audiofy
   arch: x64
-  parent: /usr/lib
+  parent: /usr/bin
   nonInteractive: true
 
 control:
@@ -9,7 +9,21 @@ control:
   Version: 1.0.0
   Architecture: amd64
   Maintainer: Joseph Tadesse <joetech0101@gmail.com>
-  Description: The Audio Streaming Platform
-  Depends: libgtk-3-0, libblkid1, liblzma5
-  Section: utils
+  Description: Audio Streaming Platform for YouTube
+   Audiofy is a modern audio streaming application that allows you to
+   listen to audio from YouTube videos. Features include playlist management,
+   favorites, download support, and a beautiful desktop player interface.
+  Homepage: https://github.com/josephT273/Audiofy
+  Depends: libgtk-3-0, libblkid1, liblzma5, libmpv2 | libmpv1, mpv
+  Section: sound
   Priority: optional
+
+desktop:
+  Name: Audiofy
+  Comment: Stream audio from YouTube
+  Exec: audiofy
+  Icon: audiofy
+  Terminal: false
+  Type: Application
+  Categories: AudioVideo;Audio;Player;
+  Keywords: audio;music;youtube;streaming;player;

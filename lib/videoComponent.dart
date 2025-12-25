@@ -225,7 +225,7 @@ class _VideoComponentState extends State<VideoComponent> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              widget.video.duration!,
+                              widget.video.duration ?? '',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,

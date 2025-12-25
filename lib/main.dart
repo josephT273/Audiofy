@@ -372,11 +372,16 @@ class Playing with ChangeNotifier {
   Future<void> setQueue(List<MyVideo> videos,
       {int initialIndex = 0, String? playlistName}) async {
     if (videos.isEmpty) {
+      print("Warning: setQueue called with empty videos list");
       await clearQueue();
       return;
     }
 
+    print(
+        "DEBUG: setQueue called with ${videos.length} videos. Initial Index: $initialIndex");
+
     _isloading = true;
+    _isPlayerVisible = true; // Ensure player is visible
     currentPlaylistName = playlistName;
     notifyListeners();
 
@@ -384,18 +389,39 @@ class Playing with ChangeNotifier {
     await _audioPlayer.stop();
     _queue.clear();
     _playlist = ConcatenatingAudioSource(children: []);
-    await _audioPlayer.setAudioSource(_playlist);
 
     // 2. Populate _queue immediately for UI
     _queue.addAll(videos);
     _video = videos[initialIndex];
     notifyListeners();
 
+    // 3. Find the first playable video starting from initialIndex
+    int foundIndex = -1;
+    for (int i = initialIndex; i < videos.length; i++) {
+      try {
+        print("Attempting to load initial video: ${videos[i].title}");
+        AudioSource initialSource = await createAudioSource(videos[i]);
+        await _playlist.add(initialSource);
+        _video = videos[i]; // Update video only if successful
+        foundIndex = i;
+        notifyListeners();
+        break; // Found a working video
+      } catch (e) {
+        print("Skipping failed video: ${videos[i].title}. Error: $e");
+        // Continue to next video
+      }
+    }
+
+    if (foundIndex == -1) {
+      print("All videos in playlist failed to load.");
+      _isloading = false;
+      notifyListeners();
+      return;
+    }
+
     try {
-      // 3. Load the initial video immediately to start playback
-      print("Loading initial video: ${_video.title}");
-      AudioSource initialSource = await createAudioSource(_video);
-      await _playlist.add(initialSource);
+      // Set the audio source with the first song before playing
+      await _audioPlayer.setAudioSource(_playlist);
 
       // Start playing
       await play();
@@ -403,29 +429,18 @@ class Playing with ChangeNotifier {
       notifyListeners();
 
       // 4. Load remaining videos in the background
-      // We load them in order, starting from the first and skipping the initialIndex
       for (int i = 0; i < videos.length; i++) {
-        if (i == initialIndex) continue;
+        if (i == foundIndex) continue;
 
         MyVideo v = videos[i];
-        print(
-            "Preloading background video ($i/${videos.length - 1}): ${v.title}");
-        AudioSource source = await createAudioSource(v);
-
-        // Find the correct insertion index to maintain order
-        // Since we only added one initially, we need to be careful with index.
-        // Actually, it's easier to add all first then seek, but that's slow.
-        // Let's just add them one by one. But if we add them out of order, the indices in _playlist won't match _queue.
-        // So we MUST maintain order in _playlist as well.
-      }
-
-      // Re-thinking order: It's better to add the first one, then add all others in their correct positions.
-      // ConcatenatingAudioSource allows inserting at index.
-
-      for (int i = 0; i < videos.length; i++) {
-        if (i == initialIndex) continue;
-        AudioSource source = await createAudioSource(videos[i]);
-        await _playlist.insert(i, source);
+        try {
+          print(
+              "Preloading background video ($i/${videos.length - 1}): ${v.title}");
+          AudioSource source = await createAudioSource(v);
+          await _playlist.insert(i, source);
+        } catch (e) {
+          print("Failed to preload ${v.title}, skipping. Error: $e");
+        }
       }
     } catch (e) {
       print("Error in setQueue: $e");

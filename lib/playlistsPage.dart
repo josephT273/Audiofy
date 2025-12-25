@@ -181,8 +181,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         }
                       }
                     } else {
-                      // list alll videos on the playlist
-                      print(playlist.videos.length);
+                      // list all videos on the playlist
+                      print("--- PLAYLIST DEBUG: ${playlist.name} ---");
+                      print("Total Videos: ${playlist.videos.length}");
+                      for (var i = 0; i < playlist.videos.length; i++) {
+                        print(
+                            "Vid #$i: ${playlist.videos[i].title} (ID: ${playlist.videos[i].videoId})");
+                      }
+                      print("----------------------------------------");
+
                       playing.setQueue(playlist.videos,
                           initialIndex: 0, playlistName: playlist.name);
                       ScaffoldMessenger.of(context).showSnackBar(

@@ -11,7 +11,7 @@
   <!-- ALSO ADD THIS PERMISSION IF TARGETING SDK 34 -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <application
-        android:label="The Audio Streaming Platform"
+        android:label="Audiofy"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity

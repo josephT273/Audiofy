@@ -43,18 +43,20 @@ class DownloadManager extends ChangeNotifier {
   Map<String, DownloadTask> get activeDownloads => _activeDownloads;
 
   List<MyVideo> getCompletedDownloads() {
-    return _box.values.map((e) => MyVideo.fromMap(Map<String, dynamic>.from(e))).toList();
+    return _box.values
+        .map((e) => MyVideo.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   bool isDownloaded(String videoId) {
-      return _box.containsKey(videoId);
+    return _box.containsKey(videoId);
   }
 
   MyVideo? getDownload(String videoId) {
-      if (_box.containsKey(videoId)) {
-          return MyVideo.fromMap(Map<String, dynamic>.from(_box.get(videoId)));
-      }
-      return null;
+    if (_box.containsKey(videoId)) {
+      return MyVideo.fromMap(Map<String, dynamic>.from(_box.get(videoId)));
+    }
+    return null;
   }
 
   Future<void> startDownload(MyVideo video) async {
@@ -62,10 +64,10 @@ class DownloadManager extends ChangeNotifier {
       // Already active
       return;
     }
-    
+
     // Check permissions
     if (!await _requestPermission()) {
-        return;
+      return;
     }
 
     final task = DownloadTask(video: video, status: DownloadStatus.queued);
@@ -78,71 +80,88 @@ class DownloadManager extends ChangeNotifier {
   Future<void> pauseDownload(String videoId) async {
     final task = _activeDownloads[videoId];
     if (task != null && task.status == DownloadStatus.downloading) {
-        task.cancelToken?.cancel();
-        task.status = DownloadStatus.paused;
-        notifyListeners();
+      task.cancelToken?.cancel();
+      task.status = DownloadStatus.paused;
+      notifyListeners();
     }
   }
 
   Future<void> resumeDownload(String videoId) async {
-      final task = _activeDownloads[videoId];
-      if (task != null && task.status == DownloadStatus.paused) {
-          task.status = DownloadStatus.queued; // Re-queue
-          notifyListeners();
-          _download(task);
-      }
+    final task = _activeDownloads[videoId];
+    if (task != null && task.status == DownloadStatus.paused) {
+      task.status = DownloadStatus.queued; // Re-queue
+      notifyListeners();
+      _download(task);
+    }
   }
 
   Future<void> cancelDownload(String videoId) async {
-      final task = _activeDownloads[videoId];
-      if (task != null) {
-          task.cancelToken?.cancel();
-          _activeDownloads.remove(videoId);
-          notifyListeners();
-      }
+    final task = _activeDownloads[videoId];
+    if (task != null) {
+      task.cancelToken?.cancel();
+      _activeDownloads.remove(videoId);
+      notifyListeners();
+    }
   }
-  
+
   Future<void> deleteDownload(MyVideo video) async {
-      if (_box.containsKey(video.videoId)) {
-          final data = MyVideo.fromMap(Map<String, dynamic>.from(_box.get(video.videoId)));
-           // Delete files
-           if (data.localaudio != null) File(data.localaudio!).delete().ignore();
-           if (data.localimage != null) File(data.localimage!).delete().ignore();
-           
-           await _box.delete(video.videoId);
-           notifyListeners();
-      }
+    if (_box.containsKey(video.videoId)) {
+      final data =
+          MyVideo.fromMap(Map<String, dynamic>.from(_box.get(video.videoId)));
+      // Delete files
+      if (data.localaudio != null) File(data.localaudio!).delete().ignore();
+      if (data.localimage != null) File(data.localimage!).delete().ignore();
+
+      await _box.delete(video.videoId);
+      notifyListeners();
+    }
   }
 
   Future<void> _download(DownloadTask task) async {
+    print("DEBUG: Starting download for ${task.video.title}");
     task.status = DownloadStatus.downloading;
     task.cancelToken = CancelToken();
     notifyListeners();
 
     try {
       // 1. Get Stream URL
+      print("DEBUG: Fetching stream URL for ${task.video.videoId}");
       String? audioUrl = await fetchYoutubeStreamUrl(task.video.videoId!);
-      if (audioUrl == null) throw Exception("Failed to get audio URL");
+      print("DEBUG: Got stream URL: ${audioUrl.substring(0, 50)}...");
 
       // 2. Prepare paths
       Directory? dir;
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-          dir = await getDownloadsDirectory();
+        dir = await getDownloadsDirectory();
       }
       // Fallback if null (e.g. mobile or error)
       dir ??= await getApplicationDocumentsDirectory();
-      
+
       // Ensure directory exists (getDownloadsDirectory usually exists, but good to check)
       if (!await dir.exists()) {
-          dir = await getApplicationDocumentsDirectory(); // Final fallback
+        dir = await getApplicationDocumentsDirectory(); // Final fallback
       }
 
-      String filename = "${task.video.channelName} - ${task.video.title}".replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
+      String filename = "${task.video.channelName} - ${task.video.title}"
+          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
+      // Replace non-ASCII characters (like Amharic, Arabic, etc.) with underscores
+      filename = filename.replaceAll(RegExp(r'[^\x00-\x7F]+'), '_');
+      // Normalize spaces and trim
+      filename = filename.replaceAll(RegExp(r'\s+'), ' ').trim();
+      // Limit filename length
+      if (filename.length > 200) {
+        filename = filename.substring(0, 200);
+      }
       String savePath = "${dir.path}/$filename.mp3";
       String imgPath = "${dir.path}/$filename.jpg";
 
+      print("DEBUG: Saving to: $savePath");
+
       // 3. Download Audio
       task._lastUpdateTime = DateTime.now();
+      task._lastBytesReceived = 0;
+
+      print("DEBUG: Starting download of audio file...");
       await _dio.download(
         audioUrl,
         savePath,
@@ -150,52 +169,77 @@ class DownloadManager extends ChangeNotifier {
         onReceiveProgress: (received, total) {
           if (total != -1) {
             final now = DateTime.now();
-            final diff = now.difference(task._lastUpdateTime!).inMilliseconds;
-            
-            if (diff > 800) { // Update speed every 800ms for stability
-               double bytesDiff = (received - task._lastBytesReceived).toDouble();
-               double instantSpeedBps = bytesDiff / (diff / 1000); // Bytes/s
-               
-               // Smoothing: 70% instant, 30% previous (if not 0)
-               if (task._currentSpeed == 0) {
-                   task._currentSpeed = instantSpeedBps;
-               } else {
-                   task._currentSpeed = (instantSpeedBps * 0.7) + (task._currentSpeed * 0.3);
-               }
+            final diff = task._lastUpdateTime != null
+                ? now.difference(task._lastUpdateTime!).inMilliseconds
+                : 1000;
 
-               if (task._currentSpeed > 1024 * 1024) {
-                   task.speed = "${(task._currentSpeed / (1024 * 1024)).toStringAsFixed(1)} MB/s";
-               } else {
-                   task.speed = "${(task._currentSpeed / 1024).toStringAsFixed(0)} KB/s";
-               }
-               
-               task._lastUpdateTime = now;
-               task._lastBytesReceived = received;
+            // Update more frequently (every 300ms instead of 800ms)
+            if (diff > 300) {
+              double bytesDiff =
+                  (received - task._lastBytesReceived).toDouble();
+              double instantSpeedBps = bytesDiff / (diff / 1000); // Bytes/s
+
+              // Smoothing: 70% instant, 30% previous (if not 0)
+              if (task._currentSpeed == 0) {
+                task._currentSpeed = instantSpeedBps;
+              } else {
+                task._currentSpeed =
+                    (instantSpeedBps * 0.7) + (task._currentSpeed * 0.3);
+              }
+
+              if (task._currentSpeed > 1024 * 1024) {
+                task.speed =
+                    "${(task._currentSpeed / (1024 * 1024)).toStringAsFixed(1)} MB/s";
+              } else if (task._currentSpeed > 1024) {
+                task.speed =
+                    "${(task._currentSpeed / 1024).toStringAsFixed(0)} KB/s";
+              } else {
+                task.speed = "${task._currentSpeed.toStringAsFixed(0)} B/s";
+              }
+
+              task._lastUpdateTime = now;
+              task._lastBytesReceived = received;
+
+              // Log progress every few seconds
+              if (received % (1024 * 1024 * 2) < 100000) {
+                // Log roughly every 2MB
+                print(
+                    "DEBUG: Downloaded ${(received / (1024 * 1024)).toStringAsFixed(1)} MB / ${(total / (1024 * 1024)).toStringAsFixed(1)} MB - ${task.speed}");
+              }
             }
-            
+
             task.progress = received / total;
-            // Notify occasionally to avoid UI spam? No, notifyListeners is cheap enough usually if not every frame.
-            // But for download, maybe throttle?
-            // Let's rely on Flutter to batch frames.
-            notifyListeners(); 
+            notifyListeners();
+          } else {
+            print(
+                "DEBUG: Total size unknown (streaming), received: ${(received / (1024 * 1024)).toStringAsFixed(1)} MB");
+            // For indeterminate progress, just show received bytes
+            task.speed = "Downloading...";
+            notifyListeners();
           }
         },
       );
-      
+
+      print("DEBUG: Audio download completed!");
+
       // 4. Download Thumbnail
       String? thumbUrl = task.video.thumbnails?.first.url;
       if (thumbUrl != null) {
-          try {
-             await _dio.download(thumbUrl, imgPath);
-             task.imagePath = imgPath;
-          } catch(e) {
-             print("Thumb download failed: $e");
-          }
+        try {
+          print("DEBUG: Downloading thumbnail...");
+          await _dio.download(thumbUrl, imgPath);
+          task.imagePath = imgPath;
+          print("DEBUG: Thumbnail downloaded successfully");
+        } catch (e) {
+          print("WARN: Thumb download failed: $e");
+        }
       }
 
       task.filePath = savePath;
       task.status = DownloadStatus.completed;
-      
+
+      print("DEBUG: Download completed successfully!");
+
       // 5. Save to Hive
       MyVideo completed = MyVideo(
           videoId: task.video.videoId,
@@ -203,40 +247,41 @@ class DownloadManager extends ChangeNotifier {
           channelName: task.video.channelName,
           duration: task.video.duration,
           thumbnails: task.video.thumbnails,
-          localaudio: savePath, // Store ABSOLUTE path? Or relative? App Docs dir changes on iOS.
-          // Better to store relative, but code uses absolute. Let's stick to absolute for now or store filename and reconstruct.
-          // The previous code stored absolute.
-          localimage: task.imagePath ?? "" 
-      );
-      
+          localaudio: savePath,
+          localimage: task.imagePath ?? "");
+
       await _box.put(completed.videoId, completed.toJson());
-      
+      print("DEBUG: Saved to Hive database");
+
       // Remove from active
       _activeDownloads.remove(task.video.videoId);
       notifyListeners();
-
     } catch (e) {
-      if (CancelToken.isCancel(e as DioException)) {
-           task.status = DownloadStatus.canceled;
+      print("ERROR: Download failed - $e");
+      if (e is DioException && CancelToken.isCancel(e)) {
+        print("DEBUG: Download was canceled");
+        task.status = DownloadStatus.canceled;
       } else {
-          print("Download Error: $e");
-          task.status = DownloadStatus.failed;
+        print("ERROR: Download error: $e");
+        task.status = DownloadStatus.failed;
+        task.speed = "Failed";
       }
       notifyListeners();
     }
   }
 
   Future<bool> _requestPermission() async {
-      if (!Platform.isAndroid && !Platform.isIOS) return true; // No runtime permission needed on Desktop usually for AppDir
-      
-      // On Android 13+, permission logic is different for media, but path_provider uses app-specific storage.
-      // Usually Internal Storage (AppDocsDir) doesn't need explicit permission.
-      // But if we wanted External, we would.
-      // The old code requested Permission.storage.
-      var status = await Permission.storage.status;
-      if (!status.isGranted) {
-          status = await Permission.storage.request();
-      }
-      return status.isGranted;
+    if (!Platform.isAndroid && !Platform.isIOS)
+      return true; // No runtime permission needed on Desktop usually for AppDir
+
+    // On Android 13+, permission logic is different for media, but path_provider uses app-specific storage.
+    // Usually Internal Storage (AppDocsDir) doesn't need explicit permission.
+    // But if we wanted External, we would.
+    // The old code requested Permission.storage.
+    var status = await Permission.storage.status;
+    if (!status.isGranted) {
+      status = await Permission.storage.request();
+    }
+    return status.isGranted;
   }
 }
