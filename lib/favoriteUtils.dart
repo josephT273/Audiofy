@@ -1,22 +1,19 @@
-import 'package:audiofy/MyVideo.dart';
-import 'package:audiofy/fetchYoutubeStreamUrl.dart';
+import 'package:audify/MyVideo.dart';
 import 'package:localstore/localstore.dart';
 import 'package:youtube_scrape_api/models/thumbnail.dart';
-
 
 final db = Localstore.instance;
 
 Future<List<MyVideo>> getFavorites() async {
-  List<MyVideo>favoriteList = [];
+  List<MyVideo> favoriteList = [];
   final favorites = await db.collection('favorites').get();
   Iterable? values = favorites?.values;
 
-  if (values != null) { // Add null check here
+  if (values != null) {
+    // Add null check here
     for (final value in values) {
       Thumbnail thumbnail = Thumbnail(
-          url: value['url'],
-          height: value['height'],
-          width: value['width']);
+          url: value['url'], height: value['height'], width: value['width']);
       List<Thumbnail> thumbnails = [];
       thumbnails.add(thumbnail);
 
@@ -28,18 +25,17 @@ Future<List<MyVideo>> getFavorites() async {
           views: value['views'],
           uploadDate: value['uploadDate'],
           thumbnails: thumbnails,
-          localaudio: value['localaudio']
-      );
+          localaudio: value['localaudio']);
       favoriteList.add(video);
     }
   }
   return favoriteList;
 }
 
-
 Future<bool> saveToFavorites(MyVideo video) async {
   final id = video.videoId;
-  final thumbnail = video.thumbnails?.isNotEmpty == true ? video.thumbnails!.first : null;
+  final thumbnail =
+      video.thumbnails?.isNotEmpty == true ? video.thumbnails!.first : null;
   try {
     await db.collection('favorites').doc(id).set({
       'videoId': video.videoId,

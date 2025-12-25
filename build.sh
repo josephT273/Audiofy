@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Audiofy Multi-Platform Build Script
+# Audify Multi-Platform Build Script
 # Supports: Linux, Windows, macOS, Android, iOS
 
 set -e
@@ -36,7 +36,7 @@ print_error() {
 # Display help
 show_help() {
     cat << EOF
-Audiofy Multi-Platform Build Script
+Audify Multi-Platform Build Script
 
 Usage: ./build.sh [PLATFORM] [OPTIONS]
 
@@ -121,17 +121,17 @@ build_windows() {
     
     # Copy outputs
     if [ -d "build/windows/x64/runner/Release" ]; then
-        cp -r build/windows/x64/runner/Release "${OUTPUT_DIR}/windows/audiofy"
+        cp -r build/windows/x64/runner/Release "${OUTPUT_DIR}/windows/audify"
         
         # Create a simple zip archive
         if command -v zip &> /dev/null; then
             cd "${OUTPUT_DIR}/windows"
-            zip -r "audiofy-windows-${BUILD_TYPE}.zip" audiofy/
+            zip -r "audify-windows-${BUILD_TYPE}.zip" audify/
             cd - > /dev/null
             print_success "Created Windows archive"
         fi
     elif [ -d "build/windows/runner/Release" ]; then
-        cp -r build/windows/runner/Release "${OUTPUT_DIR}/windows/audiofy"
+        cp -r build/windows/runner/Release "${OUTPUT_DIR}/windows/audify"
     fi
     
     print_success "Windows build completed"
@@ -154,17 +154,17 @@ build_macos() {
     fi
     
     # Copy outputs
-    if [ -d "build/macos/Build/Products/Release/audiofy.app" ]; then
-        cp -r build/macos/Build/Products/Release/audiofy.app "${OUTPUT_DIR}/macos/"
+    if [ -d "build/macos/Build/Products/Release/audify.app" ]; then
+        cp -r build/macos/Build/Products/Release/audify.app "${OUTPUT_DIR}/macos/"
         
         # Create DMG if possible
         if command -v create-dmg &> /dev/null; then
             create-dmg \
-                --volname "Audiofy Installer" \
+                --volname "Audify Installer" \
                 --window-pos 200 120 \
                 --window-size 600 400 \
-                "${OUTPUT_DIR}/macos/audiofy-${BUILD_TYPE}.dmg" \
-                "${OUTPUT_DIR}/macos/audiofy.app"
+                "${OUTPUT_DIR}/macos/audify-${BUILD_TYPE}.dmg" \
+                "${OUTPUT_DIR}/macos/audify.app"
             print_success "Created DMG installer"
         fi
     fi
@@ -189,12 +189,12 @@ build_android() {
     # Copy outputs
     if [ -f "build/app/outputs/flutter-apk/app-${BUILD_TYPE}.apk" ]; then
         cp build/app/outputs/flutter-apk/app-${BUILD_TYPE}.apk \
-            "${OUTPUT_DIR}/android/audiofy-${BUILD_TYPE}.apk"
+            "${OUTPUT_DIR}/android/audify-${BUILD_TYPE}.apk"
     fi
     
     if [ -f "build/app/outputs/bundle/${BUILD_TYPE}/app-${BUILD_TYPE}.aab" ]; then
         cp build/app/outputs/bundle/${BUILD_TYPE}/app-${BUILD_TYPE}.aab \
-            "${OUTPUT_DIR}/android/audiofy-${BUILD_TYPE}.aab"
+            "${OUTPUT_DIR}/android/audify-${BUILD_TYPE}.aab"
     fi
     
     print_success "Android build completed"
@@ -287,7 +287,7 @@ main() {
     
     # Print build configuration
     echo ""
-    print_info "Audiofy Build Script"
+    print_info "Audify Build Script"
     print_info "Platform: ${platform}"
     print_info "Build Type: ${BUILD_TYPE}"
     echo ""

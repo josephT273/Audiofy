@@ -1,13 +1,13 @@
 import 'package:path_provider/path_provider.dart';
-import 'package:audiofy/playlistsPage.dart';
+import 'package:audify/playlistsPage.dart';
 import 'dart:async';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:ffi' hide Size; // Add ffi
 import 'package:ffi/ffi.dart'; // Add ffi package
 import 'package:flutter/foundation.dart';
-import 'package:audiofy/desktopPlayer.dart';
-import 'package:audiofy/downloadsPage.dart';
+import 'package:audify/desktopPlayer.dart';
+import 'package:audify/downloadsPage.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart'; // Switch to just_audio_media_kit
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -913,7 +913,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           SizedBox(width: 10), // Spacing between logo and title
           // App Title
           Text(
-            "Audiofy",
+            "Audify",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,

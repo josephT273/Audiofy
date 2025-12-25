@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:audiofy/channelVideosPage.dart';
+import 'package:audify/channelVideosPage.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'main.dart'; // Replace with the actual path

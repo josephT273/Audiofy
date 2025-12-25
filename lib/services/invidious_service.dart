@@ -3,9 +3,12 @@ import 'dart:convert';
 
 class InvidiousService {
   // Public Invidious instances (privacy-focused YouTube frontends)
+  // Updated with more reliable instances for Android compatibility
   static const instances = [
+    'https://invidious.Private.coffee',
+    'https://iv.ggtyler.dev',
+    'https://invidious.io.lol',
     'https://inv.tux.pizza',
-    'https://invidious.fdn.fr',
     'https://invidious.nerdvpn.de',
   ];
 
@@ -18,9 +21,10 @@ class InvidiousService {
           Uri.parse('$instance/api/v1/videos/$videoId'),
           headers: {
             'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
           },
-        ).timeout(Duration(seconds: 10));
+        ).timeout(Duration(seconds: 15));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);

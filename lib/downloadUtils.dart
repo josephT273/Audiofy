@@ -3,24 +3,31 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:youtube_scrape_api/models/video.dart';
 import 'fetchYoutubeStreamUrl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:localstore/localstore.dart';
 import 'package:youtube_scrape_api/models/thumbnail.dart';
-import 'package:audiofy/MyVideo.dart';
+import 'package:audify/MyVideo.dart';
+
 final db = Localstore.instance;
 
-Future<void> downloadAndSaveMetaData(BuildContext context,MyVideo video,void Function(double progress) progressCallback,) async{
-  String audiopath = await downloadAudio(video.videoId!, '${video.channelName!}-${video.title!}',context,progressCallback);
-  String imagepath = await downloadImageFromUrl(video.thumbnails!.first.url!, '${video.channelName!}-${video.title!}');
+Future<void> downloadAndSaveMetaData(
+  BuildContext context,
+  MyVideo video,
+  void Function(double progress) progressCallback,
+) async {
+  String audiopath = await downloadAudio(video.videoId!,
+      '${video.channelName!}-${video.title!}', context, progressCallback);
+  String imagepath = await downloadImageFromUrl(
+      video.thumbnails!.first.url!, '${video.channelName!}-${video.title!}');
 
-  if(audiopath != "none"){
-      await saveToDownloads(video, audiopath,imagepath);
+  if (audiopath != "none") {
+    await saveToDownloads(video, audiopath, imagepath);
   }
-
 }
-Future<String> downloadAudio(String id, String fileName,BuildContext context,void Function(double progress) progressCallback) async {
+
+Future<String> downloadAudio(String id, String fileName, BuildContext context,
+    void Function(double progress) progressCallback) async {
   try {
     String? audioUrl = await fetchYoutubeStreamUrl(id);
     if (audioUrl == null) {
@@ -32,7 +39,8 @@ Future<String> downloadAudio(String id, String fileName,BuildContext context,voi
     String savePath = '$path/$fileName.mp3';
 
     Dio dio = Dio();
-    await dio.download(audioUrl, savePath, onReceiveProgress: (received, total) {
+    await dio.download(audioUrl, savePath,
+        onReceiveProgress: (received, total) {
       if (total != -1) {
         print('Downloading: ${(received / total * 100).toStringAsFixed(0)}%');
         double progress = received / total;
@@ -47,6 +55,7 @@ Future<String> downloadAudio(String id, String fileName,BuildContext context,voi
     return "none";
   }
 }
+
 Future<String> downloadImageFromUrl(String imageUrl, String fileName) async {
   try {
     if (imageUrl == null || imageUrl.isEmpty) {
@@ -55,12 +64,15 @@ Future<String> downloadImageFromUrl(String imageUrl, String fileName) async {
     }
 
     String path = await getDownloadPath();
-    String savePath = '$path/$fileName.jpg'; // Assuming jpg format, adjust if needed
+    String savePath =
+        '$path/$fileName.jpg'; // Assuming jpg format, adjust if needed
 
     Dio dio = Dio();
-    await dio.download(imageUrl, savePath, onReceiveProgress: (received, total) {
+    await dio.download(imageUrl, savePath,
+        onReceiveProgress: (received, total) {
       if (total != -1) {
-        print('Downloading image: ${(received / total * 100).toStringAsFixed(0)}%');
+        print(
+            'Downloading image: ${(received / total * 100).toStringAsFixed(0)}%');
       }
     });
 
@@ -71,21 +83,23 @@ Future<String> downloadImageFromUrl(String imageUrl, String fileName) async {
     return "none";
   }
 }
+
 Future<String> getDownloadPath() async {
-  Directory directory = await getApplicationDocumentsDirectory(); // Internal storage
+  Directory directory =
+      await getApplicationDocumentsDirectory(); // Internal storage
   return directory.path;
 }
-
-
 
 Future<bool> requestStoragePermission() async {
   PermissionStatus status = await Permission.storage.request();
   return status.isGranted;
 }
 
-Future<bool> saveToDownloads(MyVideo video,String audiopath, String imagepath) async {
+Future<bool> saveToDownloads(
+    MyVideo video, String audiopath, String imagepath) async {
   final id = video.videoId;
-  final thumbnail = video.thumbnails?.isNotEmpty == true ? video.thumbnails!.first : null;
+  final thumbnail =
+      video.thumbnails?.isNotEmpty == true ? video.thumbnails!.first : null;
   print(audiopath);
   print(imagepath);
   try {
@@ -99,8 +113,8 @@ Future<bool> saveToDownloads(MyVideo video,String audiopath, String imagepath) a
       'url': thumbnail?.url,
       'height': thumbnail?.height,
       'weight': thumbnail?.width,
-      'localaudio':audiopath,
-      'localimage':imagepath
+      'localaudio': audiopath,
+      'localimage': imagepath
     });
     print("Video saved to download successfully.");
     return true; // Indicate success
@@ -111,16 +125,15 @@ Future<bool> saveToDownloads(MyVideo video,String audiopath, String imagepath) a
 }
 
 Future<List<MyVideo>> getDownloads() async {
-  List<MyVideo>favoriteList = [];
+  List<MyVideo> favoriteList = [];
   final favorites = await db.collection('downloads').get();
   Iterable? values = favorites?.values;
 
-  if (values != null) { // Add null check here
+  if (values != null) {
+    // Add null check here
     for (final value in values) {
       Thumbnail thumbnail = Thumbnail(
-          url: value['url'],
-          height: value['height'],
-          width: value['width']);
+          url: value['url'], height: value['height'], width: value['width']);
       List<Thumbnail> thumbnails = [];
       thumbnails.add(thumbnail);
 
@@ -133,12 +146,11 @@ Future<List<MyVideo>> getDownloads() async {
           uploadDate: value['uploadDate'],
           thumbnails: thumbnails,
           localaudio: value['localaudio'],
-          localimage: value['localimage']
-      );
+          localimage: value['localimage']);
       favoriteList.add(video);
     }
   }
-return favoriteList;
+  return favoriteList;
 }
 
 Future<bool> isDownloaded(MyVideo video) async {
@@ -196,7 +208,6 @@ Future<MyVideo?> getVideoById(MyVideo video) async {
   }
 }
 
-
 Future<bool> deleteDownload(MyVideo video) async {
   final id = video.videoId;
   try {
@@ -232,8 +243,6 @@ Future<bool> deleteDownload(MyVideo video) async {
     return false; // Indicate failure
   }
 }
-
-
 
 Future<String> downloadFileDirect(String id, String fileName) async {
   try {

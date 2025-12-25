@@ -11,9 +11,10 @@
   <!-- ALSO ADD THIS PERMISSION IF TARGETING SDK 34 -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <application
-        android:label="Audiofy"
+        android:label="Audify"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name="com.ryanheise.audioservice.AudioServiceActivity"
             android:exported="true"

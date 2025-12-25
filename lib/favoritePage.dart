@@ -1,4 +1,4 @@
-import 'package:audiofy/favoriteUtils.dart';
+import 'package:audify/favoriteUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';

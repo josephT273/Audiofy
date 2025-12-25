@@ -1,5 +1,5 @@
 control:
-  Package: audiofy
+  Package: audify
   Version: 1.0.0
   Architecture: amd64
   Maintainer: Joseph Tadesse <joetech0101@gmail.com>

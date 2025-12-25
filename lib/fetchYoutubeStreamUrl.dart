@@ -1,4 +1,4 @@
-import 'package:audiofy/channelVideosPage.dart';
+import 'package:audify/channelVideosPage.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Video;
 import 'package:youtube_scrape_api/models/video.dart';
 import 'package:youtube_scrape_api/youtube_scrape_api.dart' as scraper;
@@ -9,24 +9,29 @@ Future<String> fetchYoutubeStreamUrl(String id) async {
   try {
     StreamManifest? manifest;
     // Try multiple clients for better compatibility
+    // Reordered to prioritize Android-compatible clients
     final List<List<YoutubeApiClient>> clients = [
-      [YoutubeApiClient.ios],
-      [YoutubeApiClient.androidVr],
+      [YoutubeApiClient.ios], // iOS client works best on Android
+      [YoutubeApiClient.androidMusic], // Android Music is more reliable
       [YoutubeApiClient.android],
+      [YoutubeApiClient.androidVr],
       [YoutubeApiClient.tv],
       [YoutubeApiClient.mediaConnect],
       [YoutubeApiClient.mweb],
-      [YoutubeApiClient.androidMusic],
       [YoutubeApiClient.safari],
     ];
 
+    print('Fetching stream URL for $id...');
     for (final clientList in clients) {
       try {
         manifest =
             await yt.videos.streams.getManifest(id, ytClients: clientList);
         if (manifest.audioOnly.isNotEmpty) break;
       } catch (e) {
-        print('Client failed, trying next... $e');
+        print(
+            'Client ${clientList.first.toString()} failed, trying next... $e');
+        // Add small delay to prevent rate limiting
+        await Future.delayed(Duration(milliseconds: 100));
       }
     }
 

@@ -1,4 +1,4 @@
-import 'package:audiofy/MyVideo.dart';
+import 'package:audify/MyVideo.dart';
 import 'package:youtube_scrape_api/models/video.dart'; // Import your Video class
 import 'package:youtube_scrape_api/models/thumbnail.dart';
 import 'package:flutter/material.dart';
