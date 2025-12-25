@@ -1,14 +1,13 @@
 import 'package:path_provider/path_provider.dart';
-import 'package:audiobinge/playlistsPage.dart';
+import 'package:audiofy/playlistsPage.dart';
 import 'dart:async';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:ffi' hide Size; // Add ffi
 import 'package:ffi/ffi.dart'; // Add ffi package
-import 'package:flutter/foundation.dart'; 
-import 'package:audiobinge/desktopPlayer.dart';
-import 'package:audiobinge/downloadsPage.dart';
-import 'package:audiobinge/thumbnailUtils.dart';
+import 'package:flutter/foundation.dart';
+import 'package:audiofy/desktopPlayer.dart';
+import 'package:audiofy/downloadsPage.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart'; // Switch to just_audio_media_kit
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -32,27 +31,25 @@ import 'connectivityProvider.dart';
 import 'MyVideo.dart';
 import 'colors.dart';
 import 'services/download_manager.dart';
-import 'videoComponent.dart';
-import 'favoriteUtils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initHive();
-  
+
   // Add Linux support for just_audio
   // Add Linux support for just_audio
   if (!kIsWeb && Platform.isLinux) {
     JustAudioMediaKit.ensureInitialized();
     // Enable media_kit logging for Linux debugging
-    // JustAudioMediaKit.logLevel = MPVLogLevel.debug; 
-    
+    // JustAudioMediaKit.logLevel = MPVLogLevel.debug;
+
     // Fix for "Non-C locale detected" crash
     try {
       final libc = DynamicLibrary.open('libc.so.6');
       final setlocale = libc.lookupFunction<
           Pointer<Char> Function(Int32, Pointer<Char>),
           Pointer<Char> Function(int, Pointer<Char>)>('setlocale');
-          
+
       // LC_NUMERIC is 1 on Linux
       final culture = 'C'.toNativeUtf8();
       setlocale(1, culture.cast<Char>());
@@ -167,13 +164,15 @@ class Playing with ChangeNotifier {
       }
 
       // History Logic
-      if (!_recordedHistory && position.inSeconds >= 30 && _video.videoId != null) {
-          // Ensure video has title before saving
-          if (_video.title != null && _video.title!.isNotEmpty) {
-             HistoryService().addToHistory(_video);
-             _recordedHistory = true;
-             print("Added to history: ${_video.title}");
-          }
+      if (!_recordedHistory &&
+          position.inSeconds >= 30 &&
+          _video.videoId != null) {
+        // Ensure video has title before saving
+        if (_video.title != null && _video.title!.isNotEmpty) {
+          HistoryService().addToHistory(_video);
+          _recordedHistory = true;
+          print("Added to history: ${_video.title}");
+        }
       }
       notifyListeners();
     });
@@ -182,7 +181,8 @@ class Playing with ChangeNotifier {
       _isPlaying = playerState.playing;
       notifyListeners();
 
-      print("Player state: ${playerState.processingState}, playing: ${playerState.playing}");
+      print(
+          "Player state: ${playerState.processingState}, playing: ${playerState.playing}");
 
       if (playerState.processingState == ProcessingState.completed) {
         if (_isLooping == 1) {
@@ -229,7 +229,6 @@ class Playing with ChangeNotifier {
     notifyListeners();
   }
 
-
   Future<void> playNext(MyVideo v) async {
     _isloading = true;
     notifyListeners();
@@ -244,25 +243,25 @@ class Playing with ChangeNotifier {
       // 2. Insert immediately after current song
       int currentIndex = _audioPlayer.currentIndex ?? 0;
       int insertIndex = currentIndex + 1;
-      
+
       // Prevent out of bounds
       if (insertIndex > _queue.length) {
-          insertIndex = _queue.length;
+        insertIndex = _queue.length;
       }
 
       // 3. Add to _queue
       _queue.insert(insertIndex, v);
-      
+
       // 4. Add to _playlist
       AudioSource audioSource = await createAudioSource(v);
       await _playlist.insert(insertIndex, audioSource);
-      
+
       notifyListeners();
 
       // 5. Play immediately
       await _audioPlayer.seek(Duration.zero, index: insertIndex);
       await play();
-      
+
       _isloading = false;
       notifyListeners();
     } catch (e) {
@@ -273,7 +272,6 @@ class Playing with ChangeNotifier {
   }
 
   Future<void> assign(MyVideo v, bool clear) async {
-
     _isloading = true;
     _isPlayerVisible = true;
     notifyListeners();
@@ -299,7 +297,7 @@ class Playing with ChangeNotifier {
           AudioSource audioSource = await createAudioSource(v);
           await _playlist.add(audioSource);
         }
-        
+
         int index = _queue.indexWhere((video) => video.videoId == v.videoId);
         if (index != -1) {
           _video = v;
@@ -371,7 +369,8 @@ class Playing with ChangeNotifier {
 
   String? currentPlaylistName;
 
-  Future<void> setQueue(List<MyVideo> videos, {int initialIndex = 0, String? playlistName}) async {
+  Future<void> setQueue(List<MyVideo> videos,
+      {int initialIndex = 0, String? playlistName}) async {
     if (videos.isEmpty) {
       await clearQueue();
       return;
@@ -397,7 +396,7 @@ class Playing with ChangeNotifier {
       print("Loading initial video: ${_video.title}");
       AudioSource initialSource = await createAudioSource(_video);
       await _playlist.add(initialSource);
-      
+
       // Start playing
       await play();
       _isloading = false;
@@ -407,27 +406,27 @@ class Playing with ChangeNotifier {
       // We load them in order, starting from the first and skipping the initialIndex
       for (int i = 0; i < videos.length; i++) {
         if (i == initialIndex) continue;
-        
+
         MyVideo v = videos[i];
-        print("Preloading background video ($i/${videos.length-1}): ${v.title}");
+        print(
+            "Preloading background video ($i/${videos.length - 1}): ${v.title}");
         AudioSource source = await createAudioSource(v);
-        
+
         // Find the correct insertion index to maintain order
         // Since we only added one initially, we need to be careful with index.
         // Actually, it's easier to add all first then seek, but that's slow.
         // Let's just add them one by one. But if we add them out of order, the indices in _playlist won't match _queue.
         // So we MUST maintain order in _playlist as well.
       }
-      
+
       // Re-thinking order: It's better to add the first one, then add all others in their correct positions.
       // ConcatenatingAudioSource allows inserting at index.
-      
+
       for (int i = 0; i < videos.length; i++) {
         if (i == initialIndex) continue;
         AudioSource source = await createAudioSource(videos[i]);
         await _playlist.insert(i, source);
       }
-      
     } catch (e) {
       print("Error in setQueue: $e");
       _isloading = false;
@@ -523,13 +522,13 @@ class Playing with ChangeNotifier {
     // Use DownloadManager singleton
     final downloadManager = DownloadManager();
     var local = downloadManager.isDownloaded(v.videoId!);
-    
+
     if (local) {
       v = downloadManager.getDownload(v.videoId!)!;
       if (v.localaudio == null || !File(v.localaudio!).existsSync()) {
-         print("Local file missing for ${v.title}, falling back to stream");
-         // Fallback to stream if file missing
-         return _createStreamSource(v);
+        print("Local file missing for ${v.title}, falling back to stream");
+        // Fallback to stream if file missing
+        return _createStreamSource(v);
       }
 
       return AudioSource.uri(
@@ -544,38 +543,37 @@ class Playing with ChangeNotifier {
         ),
       );
     } else {
-       return _createStreamSource(v);
+      return _createStreamSource(v);
     }
   }
 
   Future<AudioSource> _createStreamSource(MyVideo v) async {
-      print("Fetching stream URL for ${v.videoId}...");
-      try {
-        var url = await fetchYoutubeStreamUrl(v.videoId!);
-        if (url == null) throw Exception("Stream URL is null");
-        print("Stream URL fetched: $url");
-        
-        return AudioSource.uri(
-          Uri.parse(url),
-          headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-          },
-          tag: MediaItem(
-            id: v.videoId!,
-            album: v.channelName ?? "Unknown",
-            title: v.title ?? "Unknown",
-            artUri: v.thumbnails != null && v.thumbnails!.isNotEmpty && v.thumbnails![0].url != null
-                ? Uri.parse(v.thumbnails![0].url!)
-                : null,
-          ),
-        );
-      } catch (e) {
-        print("Error fetching stream URL: $e");
-        // Return a dummy source to prevent crash, effectively skipping the track
-        // Or better, error source.
-        return AudioSource.uri(Uri.parse("data:audio/mp3;base64,//"), tag: MediaItem(id: v.videoId!, title: "Error loading: ${v.title}"));
-      }
+    print("Fetching stream URL for ${v.videoId}...");
+    try {
+      var url = await fetchYoutubeStreamUrl(v.videoId!);
+      print("Stream URL fetched: $url");
+
+      return AudioSource.uri(
+        Uri.parse(url),
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        },
+        tag: MediaItem(
+          id: v.videoId!,
+          album: v.channelName ?? "Unknown",
+          title: v.title ?? "Unknown",
+          artUri: v.thumbnails != null &&
+                  v.thumbnails!.isNotEmpty &&
+                  v.thumbnails![0].url != null
+              ? Uri.parse(v.thumbnails![0].url!)
+              : null,
+        ),
+      );
+    } catch (e) {
+      print("Error fetching stream URL: $e");
+      throw e;
+    }
   }
 
   @override
@@ -708,9 +706,10 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
   Widget build(BuildContext context) {
     final playing = context.watch<Playing>();
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final bool isDesktop = constraints.maxWidth >= 900;
-      if (isDesktop) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isDesktop = constraints.maxWidth >= 900;
+        if (isDesktop) {
           return Scaffold(
             backgroundColor: Colors.black,
             appBar: const CustomAppBar(),
@@ -756,13 +755,12 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
                       icon: Icon(Icons.history),
                       label: Text("History"),
                     ),
-                     NavigationRailDestination(
+                    NavigationRailDestination(
                       icon: Icon(Icons.playlist_play),
                       label: Text("Playlists"),
                     ),
                   ],
                 ),
-
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -778,7 +776,6 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
                     child: _getPage(),
                   ),
                 ),
-
                 if (playing.video.title != null)
                   MouseRegion(
                     cursor: SystemMouseCursors.resizeLeftRight,
@@ -786,32 +783,32 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
                       behavior: HitTestBehavior.translucent,
                       onHorizontalDragUpdate: (details) {
                         setState(() {
-                             // Adjust width reversed since it's on the right
-                             _playerWidth -= details.delta.dx;
-                             // Clamp width
-                             if (_playerWidth < 300) _playerWidth = 300;
-                             if (_playerWidth > 600) _playerWidth = 600;
+                          // Adjust width reversed since it's on the right
+                          _playerWidth -= details.delta.dx;
+                          // Clamp width
+                          if (_playerWidth < 300) _playerWidth = 300;
+                          if (_playerWidth > 600) _playerWidth = 600;
                         });
                       },
                       child: Container(
                         width: 8,
                         color: Colors.black,
-                        child: Center(child: Container(width: 1, color: Colors.white24)),
+                        child: Center(
+                            child: Container(width: 1, color: Colors.white24)),
                       ),
                     ),
                   ),
-
                 if (playing.video.title != null)
-                   SizedBox(
-                      width: _playerWidth,
-                      child: Container(
-                         decoration: const BoxDecoration(
-                            color: Colors.black87,
-                            border: Border(left: BorderSide(color: Colors.white12)),
-                         ),
-                         child: const DesktopPlayer(),
+                  SizedBox(
+                    width: _playerWidth,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black87,
+                        border: Border(left: BorderSide(color: Colors.white12)),
                       ),
-                   )
+                      child: const DesktopPlayer(),
+                    ),
+                  )
               ],
             ),
           );
@@ -823,7 +820,6 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
           body: Stack(
             children: [
               _getPage(),
-
               if (playing.video.title != null && playing.isPlayerVisible)
                 Positioned(
                   left: 0,
@@ -865,7 +861,7 @@ class _YouTubeTwitchTabsState extends State<YouTubeTwitchTabs> {
                     icon: Icon(Icons.download),
                     label: "Downloads",
                   ),
-                   BottomNavigationBarItem(
+                  BottomNavigationBarItem(
                     icon: Icon(Icons.history),
                     label: "History",
                   ),

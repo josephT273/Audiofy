@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:audiobinge/channelVideosPage.dart';
-import 'package:audiobinge/downloadUtils.dart';
+import 'package:audiofy/channelVideosPage.dart';
+import 'package:audiofy/downloadUtils.dart';
 
 import 'MyVideo.dart';
 

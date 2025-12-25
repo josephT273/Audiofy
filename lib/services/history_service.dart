@@ -1,5 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:audiobinge/MyVideo.dart';
+import 'package:audiofy/MyVideo.dart';
 
 class HistoryService {
   static final HistoryService _instance = HistoryService._internal();

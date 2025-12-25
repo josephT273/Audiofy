@@ -1,7 +1,7 @@
-import 'package:audiobinge/bottomPlayer.dart';
-import 'package:audiobinge/downloadsPage.dart';
-import 'package:audiobinge/favoritePage.dart';
-import 'package:audiobinge/main.dart';
+import 'package:audiofy/bottomPlayer.dart';
+import 'package:audiofy/downloadsPage.dart';
+import 'package:audiofy/favoritePage.dart';
+import 'package:audiofy/main.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

@@ -1,5 +1,5 @@
-import 'package:audiobinge/MyVideo.dart';
-import 'package:audiobinge/fetchYoutubeStreamUrl.dart';
+import 'package:audiofy/MyVideo.dart';
+import 'package:audiofy/fetchYoutubeStreamUrl.dart';
 import 'package:localstore/localstore.dart';
 import 'package:youtube_scrape_api/models/thumbnail.dart';
 

@@ -8,7 +8,7 @@ import 'fetchYoutubeStreamUrl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:localstore/localstore.dart';
 import 'package:youtube_scrape_api/models/thumbnail.dart';
-import 'package:audiobinge/MyVideo.dart';
+import 'package:audiofy/MyVideo.dart';
 final db = Localstore.instance;
 
 Future<void> downloadAndSaveMetaData(BuildContext context,MyVideo video,void Function(double progress) progressCallback,) async{

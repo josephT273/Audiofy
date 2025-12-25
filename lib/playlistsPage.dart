@@ -23,17 +23,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     super.initState();
     // Initialize with a pending future to avoid LateInitializationError
     _playlistsFuture = _playlistService.initializeDefaultPlaylist().then((_) {
-        return _playlistService.getPlaylists();
+      return _playlistService.getPlaylists();
     });
-  }
-
-  Future<void> _initAndLoad() async {
-    await _playlistService.initializeDefaultPlaylist();
-    if (mounted) {
-       setState(() {
-          _playlistsFuture = _playlistService.getPlaylists();
-       });
-    }
   }
 
   void _loadPlaylists() {
@@ -44,7 +35,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   Future<void> _refreshSelectedPlaylist() async {
     if (_selectedPlaylist != null) {
-      final updated = await _playlistService.getPlaylist(_selectedPlaylist!.name);
+      final updated =
+          await _playlistService.getPlaylist(_selectedPlaylist!.name);
       if (updated != null) {
         setState(() {
           _selectedPlaylist = updated;
@@ -65,11 +57,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         future: _playlistsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: AppColors.primaryColor));
+            return Center(
+                child:
+                    CircularProgressIndicator(color: AppColors.primaryColor));
           } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.white)));
+            return Center(
+                child: Text("Error: ${snapshot.error}",
+                    style: TextStyle(color: Colors.white)));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(child: Text("No playlists found.", style: TextStyle(color: Colors.grey)));
+            return Center(
+                child: Text("No playlists found.",
+                    style: TextStyle(color: Colors.grey)));
           } else {
             final playlists = snapshot.data!;
             return ListView.builder(
@@ -80,7 +78,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 final isWatchLater = playlist.name == 'Watch Later';
                 return Card(
                   color: Colors.white.withOpacity(0.05),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     leading: Container(
                       width: 50,
@@ -90,7 +89,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                          isWatchLater ? Icons.watch_later : Icons.playlist_play,
+                          isWatchLater
+                              ? Icons.watch_later
+                              : Icons.playlist_play,
                           color: AppColors.primaryColor),
                     ),
                     title: Text(playlist.name,
@@ -106,7 +107,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                     trailing: isWatchLater
                         ? null
                         : IconButton(
-                            icon: Icon(Icons.delete_outline, color: Colors.grey),
+                            icon:
+                                Icon(Icons.delete_outline, color: Colors.grey),
                             onPressed: () {
                               _showDeleteConfirmationDialog(
                                   context, playlist.name);
@@ -132,7 +134,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   Widget _buildPlaylistDetails(Playlist playlist) {
     return Consumer<Playing>(
       builder: (context, playing, child) {
-        final isThisPlaylistPlaying = playing.currentPlaylistName == playlist.name;
+        final isThisPlaylistPlaying =
+            playing.currentPlaylistName == playlist.name;
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -151,7 +154,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             title: Text(playlist.name, style: TextStyle(color: Colors.white)),
             actions: [
               Padding(
-                padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+                padding:
+                    const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
                 child: ElevatedButton.icon(
                   onPressed: () {
                     if (playlist.videos.isEmpty) {
@@ -168,14 +172,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         // If finished or stopped, check processingState or just play
                         // But just_audio stop() resets to start.
                         // If naturally finished, we might need to seek to beginning.
-                        if (playing.audioPlayer.processingState == ProcessingState.completed) {
-                            playing.seekAudio(Duration.zero);
-                            playing.play();
+                        if (playing.audioPlayer.processingState ==
+                            ProcessingState.completed) {
+                          playing.seekAudio(Duration.zero);
+                          playing.play();
                         } else {
-                            playing.play();
+                          playing.play();
                         }
                       }
                     } else {
+                      // list alll videos on the playlist
+                      print(playlist.videos.length);
                       playing.setQueue(playlist.videos,
                           initialIndex: 0, playlistName: playlist.name);
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -198,7 +205,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                     size: 20,
                   ),
                   label: Text(
-                    (isThisPlaylistPlaying && playing.isPlaying) ? 'Pause' : 'Play All',
+                    (isThisPlaylistPlaying && playing.isPlaying)
+                        ? 'Pause'
+                        : 'Play All',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -237,7 +246,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           border: isCurrentVideo
-                              ? Border.all(color: AppColors.primaryColor, width: 2)
+                              ? Border.all(
+                                  color: AppColors.primaryColor, width: 2)
                               : null,
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -255,13 +265,16 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                               top: 4,
                               left: 4,
                               child: IconButton(
-                                icon: Icon(Icons.remove_circle, color: Colors.red),
+                                icon: Icon(Icons.remove_circle,
+                                    color: Colors.red),
                                 onPressed: () async {
-                                  await _playlistService.removeVideoFromPlaylist(
-                                      playlist.name, video.videoId!);
+                                  await _playlistService
+                                      .removeVideoFromPlaylist(
+                                          playlist.name, video.videoId!);
                                   _refreshSelectedPlaylist();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Removed from playlist")),
+                                    SnackBar(
+                                        content: Text("Removed from playlist")),
                                   );
                                 },
                               ),
@@ -291,8 +304,10 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             decoration: InputDecoration(
               hintText: "Playlist Name",
               hintStyle: TextStyle(color: Colors.grey),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryColor)),
+              enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey)),
+              focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primaryColor)),
             ),
           ),
           actions: [
@@ -303,12 +318,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             TextButton(
               onPressed: () async {
                 if (_controller.text.isNotEmpty) {
-                  await _playlistService.savePlaylist(Playlist(name: _controller.text, videos: []));
+                  await _playlistService.savePlaylist(
+                      Playlist(name: _controller.text, videos: []));
                   _loadPlaylists();
                   Navigator.pop(context);
                 }
               },
-              child: Text("Create", style: TextStyle(color: AppColors.primaryColor)),
+              child: Text("Create",
+                  style: TextStyle(color: AppColors.primaryColor)),
             ),
           ],
         );
@@ -316,14 +333,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     );
   }
 
-  void _showDeleteConfirmationDialog(BuildContext context, String playlistName) {
+  void _showDeleteConfirmationDialog(
+      BuildContext context, String playlistName) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900],
           title: Text("Delete Playlist", style: TextStyle(color: Colors.white)),
-          content: Text("Are you sure you want to delete the playlist '$playlistName'?", style: TextStyle(color: Colors.white70)),
+          content: Text(
+              "Are you sure you want to delete the playlist '$playlistName'?",
+              style: TextStyle(color: Colors.white70)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

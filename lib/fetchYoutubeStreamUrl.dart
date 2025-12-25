@@ -1,4 +1,4 @@
-import 'package:audiobinge/channelVideosPage.dart';
+import 'package:audiofy/channelVideosPage.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Video;
 import 'package:youtube_scrape_api/models/video.dart';
 import 'package:youtube_scrape_api/youtube_scrape_api.dart' as scraper;
@@ -9,6 +9,7 @@ Future<String> fetchYoutubeStreamUrl(String id) async {
     StreamManifest? manifest;
     // Try multiple clients for better compatibility
     final List<List<YoutubeApiClient>> clients = [
+      [YoutubeApiClient.ios],
       [YoutubeApiClient.androidVr],
       [YoutubeApiClient.android],
       [YoutubeApiClient.tv],
@@ -16,7 +17,8 @@ Future<String> fetchYoutubeStreamUrl(String id) async {
 
     for (final clientList in clients) {
       try {
-        manifest = await yt.videos.streams.getManifest(id, ytClients: clientList);
+        manifest =
+            await yt.videos.streams.getManifest(id, ytClients: clientList);
         if (manifest.audioOnly.isNotEmpty) break;
       } catch (e) {
         print('Client failed, trying next... $e');
@@ -40,6 +42,9 @@ Future<Stream<List<int>>> fetchAcutalStream(String id) async {
       // You can also pass a list of preferred clients, otherwise the library will handle it:
       ytClients: [
         YoutubeApiClient.androidVr,
+        YoutubeApiClient.android,
+        YoutubeApiClient.tv,
+        YoutubeApiClient.ios,
       ]);
 
   // Print all the available streams.
